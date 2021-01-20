@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
-	"strings"
 
 	datadogV1 "github.com/DataDog/datadog-api-client-go/api/v1/datadog"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
@@ -23,7 +22,6 @@ func dataSourceDatadogMonitors() *schema.Resource {
 				Computed: true,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
-
 						"name": {
 							Description: "Name of the monitor",
 							Type:        schema.TypeString,
@@ -183,29 +181,30 @@ func dataSourceDatadogMonitorsRead(d *schema.ResourceData, meta interface{}) err
 		return translateClientError(err, "error querying monitors")
 	}
 	monitors := []map[string]interface{}{}
-	d.SetId(strconv.FormatInt(m.GetId(), 10))
+	d.SetId(strconv.FormatInt(10000343, 10))
 
-	for _, r := range res {
+	for i := 0; i < len(res); i++ {
+		m := res[i]
 
 		monitor := map[string]interface{}{}
 		thresholds := make(map[string]string)
 
-		if v, ok := r.Options.Thresholds.GetOkOk(); ok {
+		if v, ok := m.Options.Thresholds.GetOkOk(); ok {
 			thresholds["ok"] = fmt.Sprintf("%v", *v)
 		}
-		if v, ok := r.Options.Thresholds.GetWarningOk(); ok {
+		if v, ok := m.Options.Thresholds.GetWarningOk(); ok {
 			thresholds["warning"] = fmt.Sprintf("%v", *v)
 		}
-		if v, ok := r.Options.Thresholds.GetCriticalOk(); ok {
+		if v, ok := m.Options.Thresholds.GetCriticalOk(); ok {
 			thresholds["critical"] = fmt.Sprintf("%v", *v)
 		}
-		if v, ok := r.Options.Thresholds.GetUnknownOk(); ok {
+		if v, ok := m.Options.Thresholds.GetUnknownOk(); ok {
 			thresholds["unknown"] = fmt.Sprintf("%v", *v)
 		}
-		if v, ok := r.Options.Thresholds.GetWarningRecoveryOk(); ok {
+		if v, ok := m.Options.Thresholds.GetWarningRecoveryOk(); ok {
 			thresholds["warning_recovery"] = fmt.Sprintf("%v", *v)
 		}
-		if v, ok := r.Options.Thresholds.GetCriticalRecoveryOk(); ok {
+		if v, ok := m.Options.Thresholds.GetCriticalRecoveryOk(); ok {
 			thresholds["critical_recovery"] = fmt.Sprintf("%v", *v)
 		}
 
@@ -224,29 +223,29 @@ func dataSourceDatadogMonitorsRead(d *schema.ResourceData, meta interface{}) err
 			tags = append(tags, s)
 		}
 		sort.Strings(tags)
-		monitor["name"] = r.GetName()
-		monitor["message"] = r.GetMessage()
-		monitor["query"] = r.GetQuery()
-		monitor["type"] = r.GetType()
+		monitor["name"] = m.GetName()
+		monitor["message"] = m.GetMessage()
+		monitor["query"] = m.GetQuery()
+		monitor["type"] = m.GetType()
 
 		monitor["thresholds"] = thresholds
 		monitor["threshold_windows"] = thresholdWindows
 
-		monitor["new_host_delay"] = r.Options.GetNewHostDelay()
-		monitor["evaluation_delay"] = r.Options.GetEvaluationDelay()
-		monitor["notify_no_data"] = r.Options.GetNotifyNoData()
-		monitor["no_data_timeframe"] = r.Options.NoDataTimeframe
-		monitor["renotify_interval"] = r.Options.GetRenotifyInterval()
-		monitor["notify_audit"] = r.Options.GetNotifyAudit()
-		monitor["timeout_h"] = r.Options.GetTimeoutH()
-		monitor["escalation_message"] = r.Options.GetEscalationMessage()
-		monitor["include_tags"] = r.Options.GetIncludeTags()
+		monitor["new_host_delay"] = m.Options.GetNewHostDelay()
+		monitor["evaluation_delay"] = m.Options.GetEvaluationDelay()
+		monitor["notify_no_data"] = m.Options.GetNotifyNoData()
+		monitor["no_data_timeframe"] = m.Options.GetNoDataTimeframe()
+		monitor["renotify_interval"] = m.Options.GetRenotifyInterval()
+		monitor["notify_audit"] = m.Options.GetNotifyAudit()
+		monitor["timeout_h"] = m.Options.GetTimeoutH()
+		monitor["escalation_message"] = m.Options.GetEscalationMessage()
+		monitor["include_tags"] = m.Options.GetIncludeTags()
 		monitor["tags"] = tags
-		monitor["require_full_window"] = r.Options.GetRequireFullWindow() // TODO Is this one of those options that we neeed to check?
-		monitor["locked"] = r.Options.GetLocked()
+		monitor["require_full_window"] = m.Options.GetRequireFullWindow() // TODO Is this one of those options that we neeed to check?
+		monitor["locked"] = m.Options.GetLocked()
 
 		if m.GetType() == datadogV1.MONITORTYPE_LOG_ALERT {
-			monitor["enable_logs_sample"] = r.Options.GetEnableLogsSample()
+			monitor["enable_logs_sample"] = m.Options.GetEnableLogsSample()
 		}
 
 		monitors = append(monitors, monitor)
@@ -254,19 +253,10 @@ func dataSourceDatadogMonitorsRead(d *schema.ResourceData, meta interface{}) err
 	}
 
 	if f, fOk := d.GetOkExists("filter"); fOk {
-		resources = ApplyFilters(f.(*schema.Set), resources, dataSourceDatadogMonitors().Schema["monitors"].Elem.(*schema.Resource).Schema)
+		monitors = ApplyFilters(f.(*schema.Set), monitors, dataSourceDatadogMonitors().Schema["monitors"].Elem.(*schema.Resource).Schema)
 	}
+
+	d.Set("monitors", monitors)
 
 	return nil
-}
-
-func expandStringList(configured []interface{}) []string {
-	vs := make([]string, 0, len(configured))
-	for _, v := range configured {
-		val, ok := v.(string)
-		if ok && val != "" {
-			vs = append(vs, v.(string))
-		}
-	}
-	return vs
 }
